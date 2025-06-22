@@ -11,7 +11,7 @@ const bot = new Telegraf(token);
 bot.start((ctx) => {
   const ref = ctx.startPayload || '';
   ctx.reply(
-    `${webAppUrl}?ref=${ref}`,
+    'Welcome to Pincoin!',
     Markup.inlineKeyboard([
       Markup.button.webApp('Open App', `${webAppUrl}?ref=${ref}`)
     ])
