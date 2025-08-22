@@ -27,6 +27,22 @@ bot.start((ctx) => {
   )
 })
 
+bot.command("terms", (ctx) => {
+  ctx.reply(
+    "📄 Terms of Use:\n\n" +
+    "1. This service is paid and requires Telegram Stars for activation.\n" +
+    "2. Payments are processed exclusively via Telegram Stars (XTR).\n" +
+    "3. By making a payment, you agree to activate the Boost service for your account.\n" +
+    "4. All digital goods are non-refundable.\n" +
+    "5. For support, contact us via /support."
+  );
+});
+
+bot.command("support", (ctx) => {
+  ctx.reply("🆘 @pin_support");
+});
+
+
 /**
  * ✅ 1) HTTP-сервер: эндпоинт для создания invoice-link под Stars
  * MiniApp будет дергать этот URL, чтобы получить ссылку и открыть окно оплаты.
@@ -39,15 +55,16 @@ app.get('/api/create-invoice', async (req, res) => {
     const userId = Number(req.query.user_id)
     if (!userId) return res.status(400).json({ error: 'user_id is required' })
 
-    const STARS_PRICE = 10000 // цена в звёздах
+    const STARS_PRICE = 1 // цена в звёздах
 
     const invoiceLink = await bot.telegram.createInvoiceLink({
       title: 'Boost',
       description: 'Активирует Boost на 30 дней',
-      payload: JSON.stringify({ type: 'boost', user_id: userId }),
-      currency: 'XTR', // валюта Stars
-      prices: [{ label: 'Boost', amount: STARS_PRICE }]
-    })
+      payload: `boost_${userId}`,   // простая строка
+      provider_token: "",           // пустая строка
+      currency: 'XTR',
+      prices: [{ label: 'Boost', amount: 10000 }]
+    });
 
     return res.json({ invoiceLink })
   } catch (e) {
