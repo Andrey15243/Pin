@@ -55,15 +55,14 @@ app.get('/api/create-invoice', async (req, res) => {
     const userId = Number(req.query.user_id)
     if (!userId) return res.status(400).json({ error: 'user_id is required' })
 
-    const STARS_PRICE = 1 // цена в звёздах
-
+    const STARS_PRICE = 1; // 1 Star
     const invoiceLink = await bot.telegram.createInvoiceLink({
       title: 'Boost',
-      description: 'Активирует Boost на 30 дней',
-      payload: `boost_${userId}`,   // простая строка
-      provider_token: "",           // пустая строка
+      description: 'Activate Boost (Unlimited)',
+      payload: String(userId).slice(0, 32), // короткая строка
+      provider_token: "",
       currency: 'XTR',
-      prices: [{ label: 'Boost', amount: 10000 }]
+      prices: [{ label: 'Boost', amount: STARS_PRICE }]
     });
 
     return res.json({ invoiceLink })
