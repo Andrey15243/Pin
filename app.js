@@ -63,20 +63,50 @@ bot.command("support", (ctx) => {
 // Отправка invoice через команду
 bot.command('sendstars', sendBoostInvoice)
 
-// Обработка данных от MiniApp
-// Обработка данных от MiniApp и логирование
+// Один универсальный обработчик сообщений:
+// 1) ловит успешный платёж Stars
+// 2) ловит данные из MiniApp (sendData)
 bot.on('message', async (ctx) => {
-  console.log('Message received:', ctx.update)
-  
-  const webAppData = ctx.update?.message?.web_app_data?.data
+  const msg = ctx.update?.message;
+
+  // 1) УСПЕШНАЯ ОПЛАТА
+  if (msg?.successful_payment) {
+    try {
+      const tgId = msg.from.id; // int8 в БД — сравниваем числом
+      const { data, error } = await supabase
+        .from('users')
+        .update({ boost: true })
+        .eq('telegram', tgId)
+        .select('id'); // вернуть обновлённые строки (минимум поля)
+
+      if (error) {
+        console.error('Supabase update error:', error);
+        await ctx.reply('⚠️ Оплата получена, но не смогли обновить статус. Напишите в поддержку.');
+      } else if (!data || data.length === 0) {
+        await ctx.reply('⚠️ Оплата получена, но профиль не найден. Напишите в поддержку.');
+      } else {
+        await ctx.reply('✅ Boost активирован! Спасибо за оплату.');
+      }
+    } catch (e) {
+      console.error('successful_payment handler error:', e);
+      await ctx.reply('⚠️ Оплата получена, но не смогли обновить статус. Напишите в поддержку.');
+    }
+    return; // дальше не идём
+  }
+
+  // 2) ДАННЫЕ ИЗ MINIAPP (sendData)
+  const webAppData = msg?.web_app_data?.data;
   if (webAppData) {
-    console.log('WebApp data:', webAppData)
-    const data = JSON.parse(webAppData)
-    if (data.command === 'sendstars') {
-      await sendBoostInvoice(ctx)
+    try {
+      const data = JSON.parse(webAppData);
+      if (data.command === 'sendstars') {
+        await sendBoostInvoice(ctx);
+      }
+    } catch (e) {
+      console.error('web_app_data JSON parse error:', e);
     }
   }
-})
+});
 
 // ✅ Ответ на pre_checkout_query
 bot.on('pre_checkout_query', async (ctx) => {
@@ -87,22 +117,6 @@ bot.on('pre_checkout_query', async (ctx) => {
   }
 })
 
-// ✅ Обработка успешной оплаты
-bot.on('successful_payment', async (ctx) => {
-  try {
-    const tgId = ctx.from.id
-
-    await supabase
-      .from('users')
-      .update({ boost: true })
-      .eq('telegram', tgId)
-
-    await ctx.reply('✅ Boost активирован! Спасибо за оплату.')
-  } catch (e) {
-    console.error('successful_payment error:', e)
-    await ctx.reply('⚠️ Оплата прошла, но не смогли обновить статус. Напишите в поддержку.')
-  }
-})
 
 // Запуск бота
 bot.launch()
