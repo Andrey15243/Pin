@@ -71,11 +71,13 @@ bot.on('message', async (ctx) => {
   if (msg?.successful_payment) {
     try {
       const tgId = msg.from.id
+      console.log('Updating user', tgId);
       const { data, error } = await supabase
         .from('users')
         .update({ boost: true })
         .eq('telegram', tgId)
-        .select('id')
+        .select('id');
+      console.log('Supabase data:', data, 'error:', error);
 
       if (error) {
         console.error('Supabase update error:', error)
