@@ -64,9 +64,14 @@ bot.command("support", (ctx) => {
 bot.command('sendstars', sendBoostInvoice)
 
 // Обработка данных от MiniApp
+// Обработка данных от MiniApp и логирование
 bot.on('message', async (ctx) => {
-  if (ctx.message?.web_app_data?.data) {
-    const data = JSON.parse(ctx.message.web_app_data.data)
+  console.log('Message received:', ctx.update)
+  
+  const webAppData = ctx.update?.message?.web_app_data?.data
+  if (webAppData) {
+    console.log('WebApp data:', webAppData)
+    const data = JSON.parse(webAppData)
     if (data.command === 'sendstars') {
       await sendBoostInvoice(ctx)
     }
@@ -86,6 +91,7 @@ bot.on('pre_checkout_query', async (ctx) => {
 bot.on('successful_payment', async (ctx) => {
   try {
     const tgId = ctx.from.id
+
     await supabase
       .from('users')
       .update({ boost: true })
