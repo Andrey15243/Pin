@@ -60,65 +60,59 @@ bot.command("support", (ctx) => {
   ctx.reply("🆘 @pin_support");
 });
 
-// Отправка invoice через команду
+// 1) Команды
 bot.command('sendstars', sendBoostInvoice)
 
-// Один универсальный обработчик сообщений:
-// 1) ловит успешный платёж Stars
-// 2) ловит данные из MiniApp (sendData)
+// 2) Универсальный обработчик сообщений
 bot.on('message', async (ctx) => {
-  const msg = ctx.update?.message;
+  const msg = ctx.update?.message
 
-  // 1) УСПЕШНАЯ ОПЛАТА
+  // Успешная оплата
   if (msg?.successful_payment) {
     try {
-      const tgId = msg.from.id; // int8 в БД — сравниваем числом
+      const tgId = msg.from.id
       const { data, error } = await supabase
         .from('users')
         .update({ boost: true })
         .eq('telegram', tgId)
-        .select('id'); // вернуть обновлённые строки (минимум поля)
+        .select('id')
 
       if (error) {
-        console.error('Supabase update error:', error);
-        await ctx.reply('⚠️ Оплата получена, но не смогли обновить статус. Напишите в поддержку.');
+        console.error('Supabase update error:', error)
+        await ctx.reply('⚠️ Оплата получена, но не смогли обновить статус.')
       } else if (!data || data.length === 0) {
-        await ctx.reply('⚠️ Оплата получена, но профиль не найден. Напишите в поддержку.');
+        await ctx.reply('⚠️ Оплата получена, но профиль не найден.')
       } else {
-        await ctx.reply('✅ Boost активирован! Спасибо за оплату.');
+        await ctx.reply('✅ Boost активирован! Спасибо за оплату.')
       }
     } catch (e) {
-      console.error('successful_payment handler error:', e);
-      await ctx.reply('⚠️ Оплата получена, но не смогли обновить статус. Напишите в поддержку.');
+      console.error('successful_payment handler error:', e)
+      await ctx.reply('⚠️ Оплата получена, но произошла ошибка. Напишите в поддержку.')
     }
-    return; // дальше не идём
+    return
   }
 
-  // 2) ДАННЫЕ ИЗ MINIAPP (sendData)
-  const webAppData = msg?.web_app_data?.data;
+  // Данные из MiniApp
+  const webAppData = msg?.web_app_data?.data
   if (webAppData) {
     try {
-      const data = JSON.parse(webAppData);
+      const data = JSON.parse(webAppData)
       if (data.command === 'sendstars') {
-        await sendBoostInvoice(ctx);
+        await sendBoostInvoice(ctx)
       }
     } catch (e) {
-      console.error('web_app_data JSON parse error:', e);
+      console.error('web_app_data JSON parse error:', e)
     }
-  }
-});
-
-// ✅ Ответ на pre_checkout_query
-bot.on('pre_checkout_query', async (ctx) => {
-  try {
-    await ctx.answerPreCheckoutQuery(true)
-  } catch (e) {
-    console.error('pre_checkout_query error:', e)
   }
 })
 
+// 3) pre_checkout_query
+bot.on('pre_checkout_query', async (ctx) => {
+  try { await ctx.answerPreCheckoutQuery(true) }
+  catch (e) { console.error('pre_checkout_query error:', e) }
+})
 
-// Запуск бота
+// 4) Запуск бота
 bot.launch()
 
 // HTTP-сервер для MiniApp (если понадобятся future endpoints)
