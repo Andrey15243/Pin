@@ -16,6 +16,24 @@ const supabase = createClient(
 
 const bot = new Telegraf(token)
 
+// Вынес функция отправки invoice, чтобы не дублировать код
+const sendBoostInvoice = async (ctx) => {
+  try {
+    const STARS_PRICE = 1; // 1 Star
+    await ctx.replyWithInvoice({
+      title: 'Boost',
+      description: 'Activate Boost (Unlimited)',
+      payload: String(ctx.from.id),
+      provider_token: '', // для Stars
+      currency: 'XTR',
+      prices: [{ label: 'Boost', amount: STARS_PRICE }]
+    })
+  } catch (e) {
+    console.error('sendInvoice error:', e)
+    ctx.reply('❌ Не удалось создать счёт')
+  }
+}
+
 // Кнопка «Open App»
 bot.start((ctx) => {
   const ref = ctx.startPayload || ''
@@ -42,39 +60,20 @@ bot.command("support", (ctx) => {
   ctx.reply("🆘 @pin_support");
 });
 
+// Отправка invoice через команду
+bot.command('sendstars', sendBoostInvoice)
 
-/**
- * ✅ 1) HTTP-сервер: эндпоинт для создания invoice-link под Stars
- * MiniApp будет дергать этот URL, чтобы получить ссылку и открыть окно оплаты.
- */
-const app = express()
-app.use(cors({ origin: webAppUrl }))
-
-app.get('/api/create-invoice', async (req, res) => {
-  try {
-    const userId = Number(req.query.user_id)
-    if (!userId) return res.status(400).json({ error: 'user_id is required' })
-
-    const STARS_PRICE = 1; // 1 Star
-    const invoiceLink = await bot.telegram.createInvoiceLink({
-      title: 'Boost',
-      description: 'Activate Boost (Unlimited)',
-      payload: 'some_unique_payload', // max 32 символа
-      provider_token: '',            // для Stars
-      currency: 'XTR',
-      prices: [{ label: 'Boost', amount: 1 }]
-    });
-
-    return res.json({ invoiceLink })
-  } catch (e) {
-    console.error('create-invoice error:', e)
-    return res.status(500).json({ error: e?.message ?? 'internal_error' })
+// Обработка данных от MiniApp
+bot.on('message', async (ctx) => {
+  if (ctx.message?.web_app_data?.data) {
+    const data = JSON.parse(ctx.message.web_app_data.data)
+    if (data.command === 'sendstars') {
+      await sendBoostInvoice(ctx)
+    }
   }
 })
 
-/**
- * ✅ 2) Ответ на pre_checkout_query (обязателен!)
- */
+// ✅ Ответ на pre_checkout_query
 bot.on('pre_checkout_query', async (ctx) => {
   try {
     await ctx.answerPreCheckoutQuery(true)
@@ -83,13 +82,10 @@ bot.on('pre_checkout_query', async (ctx) => {
   }
 })
 
-/**
- * ✅ 3) Факт успешной оплаты: включаем boost в базе
- */
+// ✅ Обработка успешной оплаты
 bot.on('successful_payment', async (ctx) => {
   try {
     const tgId = ctx.from.id
-
     await supabase
       .from('users')
       .update({ boost: true })
@@ -102,10 +98,14 @@ bot.on('successful_payment', async (ctx) => {
   }
 })
 
-// Запуск бота (long polling)
+// Запуск бота
 bot.launch()
 
-// Запуск HTTP-сервера (для MiniApp)
+// HTTP-сервер для MiniApp (если понадобятся future endpoints)
+const app = express()
+app.use(cors({ origin: webAppUrl }))
+app.get('/', (req, res) => res.send('PincoinBot API running'))
+
 const PORT = process.env.PORT || 3000
 app.listen(PORT, () => {
   console.log(`HTTP API listening on :${PORT}`)
