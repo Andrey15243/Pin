@@ -1,46 +1,47 @@
-import { Telegraf, Markup } from 'telegraf';
-import express from 'express';
-import cors from 'cors';
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
+import { Telegraf, Markup } from "telegraf";
+import express from "express";
+import cors from "cors";
+import { createClient } from "@supabase/supabase-js";
+import dotenv from "dotenv";
 dotenv.config();
 
+// ====== Конфиг ======
 const token = process.env.BOT_TOKEN;
-const webAppUrl = 'https://pincoinbot.web.app';
+const DOMAIN = process.env.DOMAIN; // твой HTTPS-домен (например https://mybot.selectel.ru)
+const PORT = process.env.PORT || 3000;
+const webAppUrl = "https://pincoinbot.web.app";
 
-// ✅ Supabase (используем service role key только на сервере)
+// ====== Supabase ======
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// ====== Инициализация ======
 const bot = new Telegraf(token);
+const app = express();
+app.use(cors({ origin: webAppUrl }));
+app.use(express.json());
 
-// Вынес функция отправки invoice
-const sendBoostInvoice = async (ctx) => {
-  try {
-    const STARS_PRICE = 1; // 1 Star
-    await ctx.replyWithInvoice({
-      title: 'Boost',
-      description: 'Activate Boost (Unlimited)',
-      payload: String(ctx.from.id),
-      provider_token: '', // для Stars
-      currency: 'XTR',
-      prices: [{ label: 'Boost', amount: STARS_PRICE }]
-    });
-  } catch (e) {
-    console.error('sendInvoice error:', e);
-    ctx.reply('❌ Не удалось создать счёт');
-  }
-};
+// ====== Утилита: создать invoice ======
+async function createBoostInvoice() {
+  return await bot.telegram.createInvoiceLink({
+    title: "Boost",
+    description: "Activate Boost (Unlimited)",
+    payload: "boost_payload",
+    provider_token: "", // Stars → пустая строка
+    currency: "XTR",
+    prices: [{ label: "Boost", amount: 1 }] // 1 Star
+  });
+}
 
-// Кнопка «Open App»
+// ====== Команды бота ======
 bot.start((ctx) => {
-  const ref = ctx.startPayload || '';
+  const ref = ctx.startPayload || "";
   return ctx.reply(
-    'Welcome to Pincoin!',
+    "Welcome to Pincoin!",
     Markup.inlineKeyboard([
-      Markup.button.webApp('Open App', `${webAppUrl}?ref=${ref}`)
+      Markup.button.webApp("Open App", `${webAppUrl}?ref=${ref}`)
     ])
   );
 });
@@ -48,11 +49,11 @@ bot.start((ctx) => {
 bot.command("terms", (ctx) => {
   ctx.reply(
     "📄 Terms of Use:\n\n" +
-    "1. This service is paid and requires Telegram Stars for activation.\n" +
-    "2. Payments are processed exclusively via Telegram Stars (XTR).\n" +
-    "3. By making a payment, you agree to activate the Boost service for your account.\n" +
-    "4. All digital goods are non-refundable.\n" +
-    "5. For support, contact us via /support."
+      "1. This service is paid and requires Telegram Stars for activation.\n" +
+      "2. Payments are processed exclusively via Telegram Stars (XTR).\n" +
+      "3. By making a payment, you agree to activate the Boost service for your account.\n" +
+      "4. All digital goods are non-refundable.\n" +
+      "5. For support, contact us via /support."
   );
 });
 
@@ -60,67 +61,80 @@ bot.command("support", (ctx) => {
   ctx.reply("🆘 @pin_support");
 });
 
-// Отправка invoice через команду
-bot.command('sendstars', sendBoostInvoice);
-
-// Универсальный обработчик сообщений: ловим данные из MiniApp
-bot.on('message', async (ctx) => {
-  const webAppData = ctx.update?.message?.web_app_data?.data;
-  if (webAppData) {
-    try {
-      const data = JSON.parse(webAppData);
-      if (data.command === 'sendstars') {
-        await sendBoostInvoice(ctx);
-      }
-    } catch (e) {
-      console.error('web_app_data JSON parse error:', e);
-    }
+// Ручная проверка → получаем ссылку на оплату
+bot.command("sendstars", async (ctx) => {
+  try {
+    const invoice = await createBoostInvoice();
+    await ctx.reply(`👉 Оплатить Boost: ${invoice}`);
+  } catch (e) {
+    console.error("sendstars error:", e);
+    ctx.reply("❌ Не удалось создать счёт");
   }
 });
 
-// ✅ Ответ на pre_checkout_query
-bot.on('pre_checkout_query', async (ctx) => {
+// ✅ Обработка pre_checkout_query (обязательно для Stars)
+bot.on("pre_checkout_query", async (ctx) => {
   try {
     await ctx.answerPreCheckoutQuery(true);
   } catch (e) {
-    console.error('pre_checkout_query error:', e);
+    console.error("pre_checkout_query error:", e);
   }
 });
 
-// ✅ Обработка успешной оплаты
-bot.on('successful_payment', async (ctx) => {
+// ✅ Успешная оплата
+bot.on("successful_payment", async (ctx) => {
   try {
     const tgId = ctx.from.id;
-    console.log('Successful payment from user', tgId);
+    console.log("Successful payment from user", tgId);
 
     const { data, error } = await supabase
-      .from('users')
+      .from("users")
       .update({ boost: true })
-      .eq('telegram', tgId)
-      .select('id');
+      .eq("telegram", tgId)
+      .select("id");
 
-    console.log('Supabase response:', { data, error });
+    console.log("Supabase response:", { data, error });
 
     if (error || !data || data.length === 0) {
-      await ctx.reply('⚠️ Оплата получена, но не смогли обновить статус. Напишите в поддержку.');
+      await ctx.reply(
+        "⚠️ Оплата получена, но не смогли обновить статус. Напишите в поддержку."
+      );
     } else {
-      await ctx.reply('✅ Boost активирован! Спасибо за оплату.');
+      await ctx.reply("✅ Boost активирован! Спасибо за оплату.");
     }
   } catch (e) {
-    console.error('successful_payment handler error:', e);
-    await ctx.reply('⚠️ Оплата получена, но произошла ошибка. Напишите в поддержку.');
+    console.error("successful_payment handler error:", e);
+    await ctx.reply(
+      "⚠️ Оплата получена, но произошла ошибка. Напишите в поддержку."
+    );
   }
 });
 
-// Запуск бота
-bot.launch();
+// ====== Webhook ======
+const WEBHOOK_PATH = `/webhook/${token}`;
+const WEBHOOK_URL = `${DOMAIN}${WEBHOOK_PATH}`;
 
-// HTTP-сервер для MiniApp
-const app = express();
-app.use(cors({ origin: webAppUrl }));
-app.get('/', (req, res) => res.send('PincoinBot API running'));
+app.post(WEBHOOK_PATH, (req, res) => {
+  res.sendStatus(200);
+  bot.handleUpdate(req.body).catch(console.error);
+});
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`HTTP API listening on :${PORT}`);
+// ====== Endpoint для MiniApp (создание инвойса) ======
+app.post("/create-invoice", async (req, res) => {
+  try {
+    const invoice = await createBoostInvoice();
+    res.json({ invoiceLink: invoice });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/", (req, res) => res.send("PincoinBot API running"));
+
+// ====== Запуск ======
+app.listen(PORT, async () => {
+  console.log(`Server running on port ${PORT}`);
+  await bot.telegram.setWebhook(WEBHOOK_URL);
+  console.log(`Webhook установлен: ${WEBHOOK_URL}`);
 });
