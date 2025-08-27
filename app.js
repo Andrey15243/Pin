@@ -31,7 +31,7 @@ async function createBoostInvoice() {
     payload: "boost_payload",
     provider_token: "", // Stars → пустая строка
     currency: "XTR",
-    prices: [{ label: "Boost", amount: 1 }] // 1 Star
+    prices: [{ label: "Boost", amount: 100 }] // 1 Star
   });
 }
 
@@ -152,7 +152,7 @@ app.post("/create-donate-invoice", async (req, res) => {
       payload: `donate_${telegramId}_${Date.now()}`,
       provider_token: "", // Stars
       currency: "XTR",
-      prices: [{ label: "Donate", amount: 1 }] // 1 ⭐️
+      prices: [{ label: "Donate", amount: 50 }] // 1 ⭐️
     });
 
     res.json({ invoiceLink: invoice });
