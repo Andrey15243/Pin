@@ -98,24 +98,23 @@ bot.on("successful_payment", async (ctx) => {
 
     if (error || !data || data.length === 0) {
       await ctx.reply(
-        "⚠️ Оплата получена, но не смогли обновить статус. Напишите в поддержку."
+        "⚠️ Payment received, but we couldn't update your status. Contact support."
       );
       return;
     }
 
-    // 2. Отправляем событие в MiniApp (если открыто внутри чата)
-    // MiniApp ловит это событие через Telegram.WebApp.onEvent("message", ...)
-    await ctx.telegram.sendMessage(
-      tgId,
-      JSON.stringify({ type: "boost_activated", boost: true })
+    // 2. Отправляем обычное сообщение с кнопкой для MiniApp
+    await ctx.reply(
+      "✅ Boost activated! You can now launch the app:",
+      Markup.inlineKeyboard([
+        Markup.button.webApp("Open App", `${webAppUrl}`)
+      ])
     );
 
-    // 3. Сообщение в чат
-    await ctx.reply("✅ Boost активирован! Спасибо за оплату.");
   } catch (e) {
     console.error("successful_payment handler error:", e);
     await ctx.reply(
-      "⚠️ Оплата получена, но произошла ошибка. Напишите в поддержку."
+      "⚠️ Payment received, but an error occurred. Contact support."
     );
   }
 });
