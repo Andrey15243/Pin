@@ -120,6 +120,18 @@ bot.on("successful_payment", async (ctx) => {
   }
 });
 
+app.get("/boost-status/:tgId", async (req, res) => {
+  const tgId = req.params.tgId;
+  const { data } = await supabase
+    .from("users")
+    .select("boost")
+    .eq("telegram", tgId)
+    .single();
+
+  res.json({ boost: data?.boost || false });
+});
+
+
 // ====== Webhook ======
 const WEBHOOK_PATH = `/webhook/${token}`;
 const WEBHOOK_URL = `${DOMAIN}${WEBHOOK_PATH}`;
