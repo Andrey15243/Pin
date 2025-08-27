@@ -87,7 +87,7 @@ bot.on("successful_payment", async (ctx) => {
     const tgId = ctx.from.id;
     console.log("Successful payment from user", tgId);
 
-    // обновляем в Supabase
+    // 1. Обновляем статус в базе
     const { error } = await supabase
       .from("users")
       .update({ boost: true })
@@ -95,7 +95,13 @@ bot.on("successful_payment", async (ctx) => {
 
     if (error) console.error("Supabase error:", error);
 
-    // сообщение пользователю
+    // 2. Отправляем событие в MiniApp, чтобы UI обновился мгновенно
+    await ctx.sendMessage(
+      tgId,
+      JSON.stringify({ type: "boost_activated", boost: true })
+    );
+
+    // 3. Сообщение пользователю (резерв)
     await ctx.reply(
       "✅ Boost activated!",
       Markup.inlineKeyboard([
@@ -105,7 +111,9 @@ bot.on("successful_payment", async (ctx) => {
 
   } catch (e) {
     console.error("successful_payment handler error:", e);
-    await ctx.reply("⚠️ Payment received, but an error occurred. Contact support.");
+    await ctx.reply(
+      "⚠️ Payment received, but an error occurred. Contact support."
+    );
   }
 });
 
