@@ -105,7 +105,7 @@ bot.on("successful_payment", async (ctx) => {
 
     // 2. Отправляем обычное сообщение с кнопкой для MiniApp
     await ctx.reply(
-      "✅ Boost activated! You can now launch the app:",
+      "✅ Boost activated!",
       Markup.inlineKeyboard([
         Markup.button.webApp("Open App", `${webAppUrl}`)
       ])
