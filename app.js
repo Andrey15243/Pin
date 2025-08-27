@@ -31,7 +31,7 @@ async function createBoostInvoice() {
     payload: "boost_payload",
     provider_token: "", // Stars → пустая строка
     currency: "XTR",
-    prices: [{ label: "Boost", amount: 100 }] // 1 Star
+    prices: [{ label: "Boost", amount: 1 }] // 1 Star
   });
 }
 
@@ -87,23 +87,41 @@ bot.on("successful_payment", async (ctx) => {
     const tgId = ctx.from.id;
     const payload = ctx.update.message?.successful_payment?.invoice_payload;
 
-    if (payload && payload.startsWith("donate_")) {
-      // Увеличиваем donate на 1
-      const { error } = await supabase
+    if (!payload) return;
+
+    // === Донат ⭐️ ===
+    if (payload.startsWith("donate_")) {
+      // Получаем текущее значение donate и увеличиваем на 1
+      const { data, error: selectError } = await supabase
         .from("users")
-        .update({ donate: supabase.raw("donate + 1") })
+        .select("donate")
+        .eq("telegram", tgId)
+        .single();
+
+      if (selectError) {
+        console.error("Select error (donate):", selectError);
+        return;
+      }
+
+      const newDonate = (data.donate || 0) + 1;
+
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ donate: newDonate })
         .eq("telegram", tgId);
 
-      if (error) console.error("Supabase error (donate update):", error);
+      if (updateError) console.error("Update error (donate):", updateError);
+
       return;
     }
 
-    // Если payload = boost_payload — оставляем существующую обработку
+    // === Boost ===
     if (payload === "boost_payload") {
       const { error } = await supabase
         .from("users")
         .update({ boost: true })
         .eq("telegram", tgId);
+
       if (error) console.error("Supabase error (boost update):", error);
     }
   } catch (e) {
@@ -129,12 +147,12 @@ app.post("/create-donate-invoice", async (req, res) => {
     const { telegramId } = req.body;
 
     const invoice = await bot.telegram.createInvoiceLink({
-      title: "Donate 1 Star",
-      description: "Add 1 star to your account",
+      title: "Donate",
+      description: "Make a donation to support the project",
       payload: `donate_${telegramId}_${Date.now()}`,
       provider_token: "", // Stars
       currency: "XTR",
-      prices: [{ label: "Donate", amount: 1 }]
+      prices: [{ label: "Donate", amount: 1 }] // 1 ⭐️
     });
 
     res.json({ invoiceLink: invoice });
@@ -143,6 +161,7 @@ app.post("/create-donate-invoice", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
 // ====== Webhook ======
