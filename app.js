@@ -87,32 +87,20 @@ bot.on("successful_payment", async (ctx) => {
     const tgId = ctx.from.id;
     console.log("Successful payment from user", tgId);
 
-    // 1. Апдейтим в Supabase
-    const { data, error } = await supabase
+    // обновляем в Supabase
+    const { error } = await supabase
       .from("users")
       .update({ boost: true })
-      .eq("telegram", tgId)
-      .select("id");
+      .eq("telegram", tgId);
 
-    if (error || !data || data.length === 0) {
-      await ctx.reply("⚠️ Payment received, but status not updated. Contact support.");
-      return;
-    }
+    if (error) console.error("Supabase error:", error);
 
-    // 2. Сообщаем в MiniApp (если она открыта)
-    await ctx.answerWebAppQuery(ctx.update.pre_checkout_query.id, {
-      type: "article",
-      id: "boost_activated",
-      title: "Boost Activated!",
-      input_message_content: {
-        message_text: "✅ Boost activated!"
-      }
-    });
-
-    // 3. Резервно отправляем кнопкой
+    // сообщение пользователю
     await ctx.reply(
       "✅ Boost activated!",
-      Markup.inlineKeyboard([Markup.button.webApp("Open App", webAppUrl)])
+      Markup.inlineKeyboard([
+        Markup.button.webApp("Open App", webAppUrl)
+      ])
     );
 
   } catch (e) {
