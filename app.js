@@ -87,35 +87,37 @@ bot.on("successful_payment", async (ctx) => {
     const tgId = ctx.from.id;
     console.log("Successful payment from user", tgId);
 
-    // 1. Обновляем статус в Supabase
+    // 1. Апдейтим в Supabase
     const { data, error } = await supabase
       .from("users")
       .update({ boost: true })
       .eq("telegram", tgId)
       .select("id");
 
-    console.log("Supabase response:", { data, error });
-
     if (error || !data || data.length === 0) {
-      await ctx.reply(
-        "⚠️ Payment received, but we couldn't update your status. Contact support."
-      );
+      await ctx.reply("⚠️ Payment received, but status not updated. Contact support.");
       return;
     }
 
-    // 2. Отправляем обычное сообщение с кнопкой для MiniApp
+    // 2. Сообщаем в MiniApp (если она открыта)
+    await ctx.answerWebAppQuery(ctx.update.pre_checkout_query.id, {
+      type: "article",
+      id: "boost_activated",
+      title: "Boost Activated!",
+      input_message_content: {
+        message_text: "✅ Boost activated!"
+      }
+    });
+
+    // 3. Резервно отправляем кнопкой
     await ctx.reply(
       "✅ Boost activated!",
-      Markup.inlineKeyboard([
-        Markup.button.webApp("Open App", `${webAppUrl}`)
-      ])
+      Markup.inlineKeyboard([Markup.button.webApp("Open App", webAppUrl)])
     );
 
   } catch (e) {
     console.error("successful_payment handler error:", e);
-    await ctx.reply(
-      "⚠️ Payment received, but an error occurred. Contact support."
-    );
+    await ctx.reply("⚠️ Payment received, but an error occurred. Contact support.");
   }
 });
 
