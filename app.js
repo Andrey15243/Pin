@@ -87,6 +87,7 @@ bot.on("successful_payment", async (ctx) => {
     const tgId = ctx.from.id;
     console.log("Successful payment from user", tgId);
 
+    // 1. Обновляем статус в Supabase
     const { data, error } = await supabase
       .from("users")
       .update({ boost: true })
@@ -99,9 +100,18 @@ bot.on("successful_payment", async (ctx) => {
       await ctx.reply(
         "⚠️ Оплата получена, но не смогли обновить статус. Напишите в поддержку."
       );
-    } else {
-      await ctx.reply("✅ Boost активирован! Спасибо за оплату.");
+      return;
     }
+
+    // 2. Отправляем событие в MiniApp (если открыто внутри чата)
+    // MiniApp ловит это событие через Telegram.WebApp.onEvent("message", ...)
+    await ctx.telegram.sendMessage(
+      tgId,
+      JSON.stringify({ type: "boost_activated", boost: true })
+    );
+
+    // 3. Сообщение в чат
+    await ctx.reply("✅ Boost активирован! Спасибо за оплату.");
   } catch (e) {
     console.error("successful_payment handler error:", e);
     await ctx.reply(
