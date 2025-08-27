@@ -85,23 +85,33 @@ bot.on("pre_checkout_query", async (ctx) => {
 bot.on("successful_payment", async (ctx) => {
   try {
     const tgId = ctx.from.id;
-    console.log("Successful payment from user", tgId);
+    const payload = ctx.update.message?.successful_payment?.invoice_payload;
 
-    // Обновляем статус в Supabase
-    const { error } = await supabase
-      .from("users")
-      .update({ boost: true })
-      .eq("telegram", tgId);
+    if (payload && payload.startsWith("donate_")) {
+      // Увеличиваем donate на 1
+      const { error } = await supabase
+        .from("users")
+        .update({ donate: supabase.raw("donate + 1") })
+        .eq("telegram", tgId);
 
-    if (error) console.error("Supabase error:", error);
+      if (error) console.error("Supabase error (donate update):", error);
+      return;
+    }
 
-    // Никаких сообщений пользователю через чат не отправляем
-    // MiniApp узнает про оплату через invoiceClosed или pollBoost
+    // Если payload = boost_payload — оставляем существующую обработку
+    if (payload === "boost_payload") {
+      const { error } = await supabase
+        .from("users")
+        .update({ boost: true })
+        .eq("telegram", tgId);
+      if (error) console.error("Supabase error (boost update):", error);
+    }
   } catch (e) {
     console.error("successful_payment handler error:", e);
-    // Если хотите, можно оставить лог, но не шлём пользователю
+
   }
 });
+
 
 app.get("/boost-status/:tgId", async (req, res) => {
   const tgId = req.params.tgId;
@@ -112,6 +122,26 @@ app.get("/boost-status/:tgId", async (req, res) => {
     .single();
 
   res.json({ boost: data?.boost || false });
+});
+
+app.post("/create-donate-invoice", async (req, res) => {
+  try {
+    const { telegramId } = req.body;
+
+    const invoice = await bot.telegram.createInvoiceLink({
+      title: "Donate 1 Star",
+      description: "Add 1 star to your account",
+      payload: `donate_${telegramId}_${Date.now()}`,
+      provider_token: "", // Stars
+      currency: "XTR",
+      prices: [{ label: "Donate", amount: 1 }]
+    });
+
+    res.json({ invoiceLink: invoice });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 
