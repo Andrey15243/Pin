@@ -40,37 +40,40 @@ bot.start(async (ctx) => {
   try {
     const tgId = ctx.from.id;
     const name = ctx.from.first_name || "User";
-    const ref = ctx.startPayload ? parseInt(ctx.startPayload) : null;
+    let ref = ctx.startPayload ? parseInt(ctx.startPayload) : null;
+    if (isNaN(ref)) ref = null; // защита от некорректного payload
 
-    // Проверяем, есть ли юзер в базе
-    let { data: user, error: userError } = await supabase
+    // Проверяем, есть ли пользователь в базе
+    const { data: user, error: userError } = await supabase
       .from("users")
       .select("telegram, invited_by")
       .eq("telegram", tgId)
       .single();
 
     if (userError && userError.code !== "PGRST116") {
-      console.error("Ошибка Supabase (select user):", userError);
+      console.error("Supabase select error:", userError);
     }
 
     // Если пользователя нет → создаём
     if (!user) {
-      const { error: insertError } = await supabase.from("users").insert([
-        {
-          telegram: tgId,
-          name,
-          invited_by: ref || null,
-          friends: {}, // пустой список друзей на старте
-        },
-      ]);
+      const { error: insertError } = await supabase
+        .from("users")
+        .insert([
+          {
+            telegram: tgId,
+            name,
+            invited_by: ref || null,
+            friends: {}, // пустой список друзей
+          },
+        ]);
 
       if (insertError) {
-        console.error("Ошибка вставки нового юзера:", insertError);
+        console.error("Ошибка вставки нового пользователя:", insertError);
       } else {
         console.log(`✅ Новый пользователь создан: ${tgId}`);
       }
 
-      // Если есть рефка → обновляем пригласившего
+      // Если есть рефка → обновляем friends пригласившего
       if (ref) {
         const { data: inviter, error: inviterError } = await supabase
           .from("users")
@@ -90,15 +93,20 @@ bot.start(async (ctx) => {
           if (updateError) {
             console.error("Ошибка обновления friends:", updateError);
           }
+        } else {
+          console.log(
+            `Пригласивший ${ref} ещё не зарегистрирован — friends не обновлены`
+          );
         }
       }
     }
 
     // ✅ Отправляем кнопку открытия MiniApp
+    const refParam = ref ? `?ref=${ref}` : "";
     return ctx.reply(
       "Welcome to Pincoin!",
       Markup.inlineKeyboard([
-        Markup.button.webApp("Open App", `${webAppUrl}?ref=${ref || ""}`)
+        Markup.button.webApp("Open App", `${webAppUrl}${refParam}`)
       ])
     );
   } catch (e) {
