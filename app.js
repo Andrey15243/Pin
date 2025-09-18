@@ -36,14 +36,75 @@ async function createBoostInvoice() {
 }
 
 // ====== Команды бота ======
-bot.start((ctx) => {
-  const ref = ctx.startPayload || "";
-  return ctx.reply(
-    "Welcome to Pincoin!",
-    Markup.inlineKeyboard([
-      Markup.button.webApp("Open App", `${webAppUrl}?ref=${ref}`)
-    ])
-  );
+bot.start(async (ctx) => {
+  try {
+    const tgId = ctx.from.id;
+    const name = ctx.from.first_name || "User";
+    const ref = ctx.startPayload ? parseInt(ctx.startPayload) : null;
+
+    // Проверяем, есть ли юзер в базе
+    let { data: user, error: userError } = await supabase
+      .from("users")
+      .select("telegram, invited_by")
+      .eq("telegram", tgId)
+      .single();
+
+    if (userError && userError.code !== "PGRST116") {
+      console.error("Ошибка Supabase (select user):", userError);
+    }
+
+    // Если пользователя нет → создаём
+    if (!user) {
+      const { error: insertError } = await supabase.from("users").insert([
+        {
+          telegram: tgId,
+          name,
+          invited_by: ref || null,
+          friends: {}, // пустой список друзей на старте
+        },
+      ]);
+
+      if (insertError) {
+        console.error("Ошибка вставки нового юзера:", insertError);
+      } else {
+        console.log(`✅ Новый пользователь создан: ${tgId}`);
+      }
+
+      // Если есть рефка → обновляем пригласившего
+      if (ref) {
+        const { data: inviter, error: inviterError } = await supabase
+          .from("users")
+          .select("friends")
+          .eq("telegram", ref)
+          .single();
+
+        if (!inviterError && inviter) {
+          const friends = inviter.friends || {};
+          friends[tgId] = { name };
+
+          const { error: updateError } = await supabase
+            .from("users")
+            .update({ friends })
+            .eq("telegram", ref);
+
+          if (updateError) {
+            console.error("Ошибка обновления friends:", updateError);
+          }
+        }
+      }
+    }
+
+    // ✅ Отправляем кнопку открытия MiniApp
+    return ctx.reply(
+      "Welcome to Pincoin!",
+      Markup.inlineKeyboard([
+        Markup.button.webApp("Open App", `${webAppUrl}?ref=${ref || ""}`)
+      ])
+    );
+  } catch (e) {
+    console.error("Ошибка в bot.start:", e);
+    return ctx.reply("❌ Ошибка при запуске. Попробуй ещё раз.");
+  }
 });
 
 bot.command("terms", (ctx) => {
