@@ -43,62 +43,62 @@ bot.start(async (ctx) => {
     let ref = ctx.startPayload ? parseInt(ctx.startPayload) : null;
     if (isNaN(ref)) ref = null;
 
-    // Проверяем, есть ли пользователь
-    const { data: user, error: userError } = await supabase
+    // Проверяем, есть ли пользователь в базе
+    const { data: existingUser, error: selectError } = await supabase
       .from("users")
       .select("*")
       .eq("telegram", tgId)
       .single();
 
-    if (userError && userError.code !== "PGRST116") {
-      console.error("Supabase select error:", userError);
+    if (selectError && selectError.code !== "PGRST116") {
+      console.error("Supabase select error:", selectError);
     }
 
-    // Если пользователя нет → создаём
-    let newUserCreated = false;
-    if (!user) {
+    let userCreated = false;
+
+    // Если пользователя нет — создаём
+    if (!existingUser) {
       const { data: newUser, error: insertError } = await supabase
         .from("users")
-        .insert([
-          {
-            telegram: tgId,
-            name,
-            invited_by: ref || null,
-            friends: {},
-          },
-        ])
+        .insert([{
+          telegram: tgId,
+          name,
+          invited_by: ref || null,
+          friends: {}
+        }])
         .select()
-        .single(); // возвращает созданного пользователя
+        .single();
 
       if (insertError) {
         console.error("Ошибка вставки нового пользователя:", insertError);
       } else {
         console.log(`✅ Новый пользователь создан: ${tgId}`);
-        newUserCreated = true;
+        userCreated = true;
       }
-    }
 
-    // Если был реферальный код и пользователь только что создан — обновляем пригласившего
-    if (ref && newUserCreated && ref !== tgId) {
-      const { data: inviter, error: inviterError } = await supabase
-        .from("users")
-        .select("friends")
-        .eq("telegram", ref)
-        .single();
+      // Если есть реферал, обновляем friends пригласившего
+      if (ref && ref !== tgId) {
+        const { data: inviter, error: inviterError } = await supabase
+          .from("users")
+          .select("friends")
+          .eq("telegram", ref)
+          .single();
 
-      if (!inviterError && inviter) {
-        const friends = inviter.friends || {};
-        if (!friends[tgId]) {
+        if (!inviterError && inviter) {
+          const friends = inviter.friends || {};
           friends[tgId] = { name };
+
           const { error: updateError } = await supabase
             .from("users")
             .update({ friends })
             .eq("telegram", ref);
+
           if (updateError) console.error("Ошибка обновления friends:", updateError);
         }
       }
     }
 
+    // Отправляем кнопку открытия приложения с реферальным параметром
     const refParam = ref ? `?ref=${ref}` : "";
     return ctx.reply(
       "Welcome to Pincoin!",
@@ -106,6 +106,7 @@ bot.start(async (ctx) => {
         Markup.button.webApp("Open App", `${webAppUrl}${refParam}`)
       ])
     );
+
   } catch (e) {
     console.error("Ошибка в bot.start:", e);
     return ctx.reply("❌ Ошибка при запуске. Попробуй ещё раз.");
