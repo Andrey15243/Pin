@@ -72,10 +72,10 @@ bot.start(async (ctx) => {
         }
 
         if (!alreadyFriend) {
-          // Добавляем в friends пригласившего
+          // Добавляем в friends пригласившего и начисляем бонус
           const { data: inviter, error: inviterError } = await supabase
             .from("users")
-            .select("friends")
+            .select("friends, score")
             .eq("telegram", ref)
             .single();
 
@@ -83,9 +83,11 @@ bot.start(async (ctx) => {
             const friends = inviter.friends || {};
             friends[tgId] = { name };
 
+            const updatedScore = (inviter.score || 0) + 1;
+
             const { error: updateError } = await supabase
               .from("users")
-              .update({ friends })
+              .update({ friends, score: updatedScore })
               .eq("telegram", ref);
 
             if (updateError) console.error("Ошибка обновления friends:", updateError);
