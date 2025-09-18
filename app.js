@@ -54,47 +54,24 @@ bot.start(async (ctx) => {
       console.error("Supabase select error:", selectError);
     }
 
-    let userCreated = false;
-
-    // Если пользователя нет — создаём
-    if (!existingUser) {
-      const { data: newUser, error: insertError } = await supabase
+    // Если есть рефка и пригласивший существует, обновляем friends
+    if (ref && ref !== tgId) {
+      const { data: inviter, error: inviterError } = await supabase
         .from("users")
-        .insert([{
-          telegram: tgId,
-          name,
-          invited_by: ref || null,
-          friends: {}
-        }])
-        .select()
+        .select("friends")
+        .eq("telegram", ref)
         .single();
 
-      if (insertError) {
-        console.error("Ошибка вставки нового пользователя:", insertError);
-      } else {
-        console.log(`✅ Новый пользователь создан: ${tgId}`);
-        userCreated = true;
-      }
+      if (!inviterError && inviter) {
+        const friends = inviter.friends || {};
+        friends[tgId] = { name };
 
-      // Если есть реферал, обновляем friends пригласившего
-      if (ref && ref !== tgId) {
-        const { data: inviter, error: inviterError } = await supabase
+        const { error: updateError } = await supabase
           .from("users")
-          .select("friends")
-          .eq("telegram", ref)
-          .single();
+          .update({ friends })
+          .eq("telegram", ref);
 
-        if (!inviterError && inviter) {
-          const friends = inviter.friends || {};
-          friends[tgId] = { name };
-
-          const { error: updateError } = await supabase
-            .from("users")
-            .update({ friends })
-            .eq("telegram", ref);
-
-          if (updateError) console.error("Ошибка обновления friends:", updateError);
-        }
+        if (updateError) console.error("Ошибка обновления friends:", updateError);
       }
     }
 
