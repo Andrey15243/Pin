@@ -31,7 +31,7 @@ async function createBoostInvoice() {
     payload: "boost_payload",
     provider_token: "", // Stars → пустая строка
     currency: "XTR",
-    prices: [{ label: "Boost", amount: 100 }] // 1 Star
+    prices: [{ label: "Boost", amount: 1 }] // 1 Star
   });
 }
 
