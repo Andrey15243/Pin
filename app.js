@@ -217,7 +217,7 @@ app.post("/create-donate-invoice", async (req, res) => {
       payload: `donate_${telegramId}_${Date.now()}`,
       provider_token: "", // Stars
       currency: "XTR",
-      prices: [{ label: "Donate", amount: 1 }] // 1 ⭐️
+      prices: [{ label: "Donate", amount: 50 }] // 1 ⭐️
     });
 
     res.json({ invoiceLink: invoice });
