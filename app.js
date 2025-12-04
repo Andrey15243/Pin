@@ -31,7 +31,7 @@ async function createBoostInvoice() {
     payload: "boost_payload",
     provider_token: "", // Stars → пустая строка
     currency: "XTR",
-    prices: [{ label: "Boost", amount: 100 }] // 1 Star
+    prices: [{ label: "Boost", amount: 100 }], // 1 Star
   });
 }
 
@@ -56,43 +56,27 @@ bot.start(async (ctx) => {
 
     // Если есть рефка и пригласивший существует, обновляем friends
     if (ref && ref !== tgId) {
-      // Проверяем, есть ли этот пользователь уже в friends у кого-то
-      const { data: allUsers, error: allUsersError } = await supabase
-        .from("users")
-        .select("telegram, friends");
+      try {
+        const { data: inviter, error: inviterError } = await supabase
+          .from("users")
+          .select("friends")
+          .eq("telegram", ref)
+          .single();
 
-      if (!allUsersError && allUsers) {
-        let alreadyFriend = false;
-        for (const user of allUsers) {
-          const friends = user.friends || {};
-          if (friends[tgId]) {
-            alreadyFriend = true;
-            break;
-          }
-        }
+        if (!inviterError && inviter) {
+          const friends = inviter.friends || {};
+          friends[tgId] = { name };
 
-        if (!alreadyFriend) {
-          // Добавляем в friends пригласившего и начисляем бонус
-          const { data: inviter, error: inviterError } = await supabase
+          const { error: updateError } = await supabase
             .from("users")
-            .select("friends, score")
-            .eq("telegram", ref)
-            .single();
+            .update({ friends }) // без score
+            .eq("telegram", ref);
 
-          if (!inviterError && inviter) {
-            const friends = inviter.friends || {};
-            friends[tgId] = { name };
-
-            const updatedScore = (inviter.score || 0) + 1;
-
-            const { error: updateError } = await supabase
-              .from("users")
-              .update({ friends, score: updatedScore })
-              .eq("telegram", ref);
-
-            if (updateError) console.error("Ошибка обновления friends:", updateError);
-          }
+          if (updateError)
+            console.error("Ошибка обновления friends:", updateError);
         }
+      } catch (e) {
+        console.error("Ошибка при добавлении в friends:", e);
       }
     }
 
@@ -101,10 +85,9 @@ bot.start(async (ctx) => {
     return ctx.reply(
       "Welcome to Pincoin!",
       Markup.inlineKeyboard([
-        Markup.button.webApp("Open App", `${webAppUrl}${refParam}`)
+        Markup.button.webApp("Open App", `${webAppUrl}${refParam}`),
       ])
     );
-
   } catch (e) {
     console.error("Ошибка в bot.start:", e);
     return ctx.reply("❌ Ошибка при запуске. Попробуй ещё раз.");
@@ -191,10 +174,8 @@ bot.on("successful_payment", async (ctx) => {
     }
   } catch (e) {
     console.error("successful_payment handler error:", e);
-
   }
 });
-
 
 app.get("/boost-status/:tgId", async (req, res) => {
   const tgId = req.params.tgId;
@@ -217,7 +198,7 @@ app.post("/create-donate-invoice", async (req, res) => {
       payload: `donate_${telegramId}_${Date.now()}`,
       provider_token: "", // Stars
       currency: "XTR",
-      prices: [{ label: "Donate", amount: 50 }] // 1 ⭐️
+      prices: [{ label: "Donate", amount: 50 }], // 1 ⭐️
     });
 
     res.json({ invoiceLink: invoice });
@@ -226,8 +207,6 @@ app.post("/create-donate-invoice", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-
 
 // ====== Webhook ======
 const WEBHOOK_PATH = `/webhook/${token}`;
