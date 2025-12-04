@@ -65,7 +65,11 @@ bot.start(async (ctx) => {
 
         if (!inviterError && inviter) {
           const friends = inviter.friends || {};
-          friends[tgId] = { name };
+          // Добавляем нового друга с дополнительным полем rewarded = false
+          friends[tgId] = {
+            name,
+            rewarded: false,
+          };
 
           const { error: updateError } = await supabase
             .from("users")
