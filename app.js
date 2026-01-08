@@ -180,9 +180,13 @@ bot.on("successful_payment", async (ctx) => {
 
     // Energy Boost
     if (payload === "energy_payload") {
-      const { data } = await supabase.from("users").select("energy").eq("telegram", tgId).single();
-      const newEnergy = (data.energy || 0) + 100; // прибавляем энергию
-      await supabase.from("users").update({ energy: newEnergy }).eq("telegram", tgId);
+      const { error } = await supabase
+        .from("users")
+        .update({ clicker_energy: 1000 }) // фиксированное значение
+        .eq("telegram", tgId);
+
+      if (error) console.error("Supabase error (energy update):", error);
+      return;
     }
 
     // === Boost ===
