@@ -35,6 +35,17 @@ async function createBoostInvoice() {
   });
 }
 
+async function createEnergyInvoice() {
+  return await bot.telegram.createInvoiceLink({
+    title: "Energy Boost",
+    description: "Increase your energy in the app",
+    payload: "energy_payload",
+    provider_token: "", // Stars
+    currency: "XTR",
+    prices: [{ label: "Energy Boost", amount: 1 }], // 0.5 ⭐️
+  });
+}
+
 // ====== Команды бота ======
 bot.start(async (ctx) => {
   try {
@@ -167,6 +178,13 @@ bot.on("successful_payment", async (ctx) => {
       return;
     }
 
+    // Energy Boost
+    if (payload === "energy_payload") {
+      const { data } = await supabase.from("users").select("energy").eq("telegram", tgId).single();
+      const newEnergy = (data.energy || 0) + 100; // прибавляем энергию
+      await supabase.from("users").update({ energy: newEnergy }).eq("telegram", tgId);
+    }
+
     // === Boost ===
     if (payload === "boost_payload") {
       const { error } = await supabase
@@ -231,6 +249,17 @@ app.post("/create-invoice", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.post("/create-energy-invoice", async (req, res) => {
+  try {
+    const invoice = await createEnergyInvoice();
+    res.json({ invoiceLink: invoice });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 app.get("/", (req, res) => res.send("PincoinBot API running"));
 
