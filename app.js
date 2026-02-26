@@ -182,8 +182,10 @@ bot.on("successful_payment", async (ctx) => {
     if (payload === "energy_payload") {
       const { error } = await supabase
         .from("users")
-        .update({ clicker_energy: 1000 }) // фиксированное значение
-        .increment('energy_boost', 1)    // увеличиваем на 1
+        .update({
+          clicker_energy: 1000,
+          energy_boost: supabase.raw('energy_boost + 1')
+         })
         .eq("telegram", tgId);
 
       if (error) console.error("Supabase error (energy update):", error);
