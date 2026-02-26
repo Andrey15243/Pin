@@ -191,7 +191,7 @@ bot.on("successful_payment", async (ctx) => {
       }
       return;
     }
-
+    
     // === Boost ===
     if (payload === "boost_payload") {
       const { error } = await supabase
