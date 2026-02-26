@@ -181,25 +181,11 @@ bot.on("successful_payment", async (ctx) => {
     // Energy Boost
     if (payload === "energy_payload") {
       try {
-        const { data, error } = await supabase
-          .from("users")
-          .select("clicker_energy, energy_boost")
-          .eq("telegram", tgId)
-          .single();
+        const { error } = await supabase.rpc("increment_energy_boost", {
+          tg_id: tgId
+        });
 
-        if (error) {
-          console.error("Supabase select error (energy):", error);
-          return;
-        }
-
-        const newEnergyBoost = (data.energy_boost || 0) + 1;
-
-        const { error: updateError } = await supabase
-          .from("users")
-          .update({ clicker_energy: 1000, energy_boost: newEnergyBoost })
-          .eq("telegram", tgId);
-
-        if (updateError) console.error("Supabase update error (energy):", updateError);
+        if (error) console.error("RPC error (energy):", error);
       } catch (e) {
         console.error("Energy Boost handler error:", e);
       }
