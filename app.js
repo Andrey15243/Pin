@@ -197,6 +197,20 @@ bot.on("successful_payment", async (ctx) => {
         .eq("telegram", tgId);
 
       if (error) console.error("Supabase error (boost update):", error);
+      return;
+    }
+    if (payload.startsWith("streak_restore_")) {
+      const daysMissed = parseInt(payload.split("_")[2]);
+
+      await supabase
+        .from("users")
+        .update({
+          checkin_streak: daysMissed, // восстанавливаем стрик
+          last_checkin_at: new Date().toISOString()
+        })
+        .eq("telegram", tgId);
+
+      return;
     }
   } catch (e) {
     console.error("successful_payment handler error:", e);
@@ -264,6 +278,26 @@ app.post("/create-energy-invoice", async (req, res) => {
   }
 });
 
+app.post("/create-streak-invoice", async (req, res) => {
+  try {
+    const { daysMissed } = req.body;
+    const amount = daysMissed * 10; // 10 звёзд за каждый день
+
+    const invoice = await bot.telegram.createInvoiceLink({
+      title: "Restore Streak",
+      description: `Restore your ${daysMissed} missed days`,
+      payload: `streak_restore_${daysMissed}`,
+      provider_token: "",
+      currency: "XTR",
+      prices: [{ label: "Restore Streak", amount }],
+    });
+
+    res.json({ invoiceLink: invoice });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.get("/", (req, res) => res.send("PincoinBot API running"));
 
