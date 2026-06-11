@@ -200,12 +200,15 @@ bot.on("successful_payment", async (ctx) => {
       return;
     }
     if (payload.startsWith("streak_restore_")) {
-      const daysMissed = parseInt(payload.split("_")[2]);
+      const parts = payload.split("_")
+      const daysMissed = parseInt(parts[2])
+      const currentStreak = parseInt(parts[3])
+      const newStreak = currentStreak + daysMissed  // 15 + 3 = 18
 
       await supabase
         .from("users")
         .update({
-          checkin_streak: daysMissed, // восстанавливаем стрик
+          checkin_streak: newStreak,
           last_checkin_at: new Date().toISOString()
         })
         .eq("telegram", tgId);
@@ -280,13 +283,13 @@ app.post("/create-energy-invoice", async (req, res) => {
 
 app.post("/create-streak-invoice", async (req, res) => {
   try {
-    const { daysMissed } = req.body;
-    const amount = daysMissed * 10; // 10 звёзд за каждый день
+    const { daysMissed, currentStreak } = req.body  // добавили currentStreak
+    const amount = daysMissed * 10
 
     const invoice = await bot.telegram.createInvoiceLink({
       title: "Restore Streak",
       description: `Restore your ${daysMissed} missed days`,
-      payload: `streak_restore_${daysMissed}`,
+      payload: `streak_restore_${daysMissed}_${currentStreak}`,  // добавили
       provider_token: "",
       currency: "XTR",
       prices: [{ label: "Restore Streak", amount }],
