@@ -284,7 +284,7 @@ app.post("/create-energy-invoice", async (req, res) => {
 app.post("/create-streak-invoice", async (req, res) => {
   try {
     const { daysMissed, currentStreak } = req.body  // добавили currentStreak
-    const amount = daysMissed * 1
+    const amount = daysMissed * 10
 
     const invoice = await bot.telegram.createInvoiceLink({
       title: "Restore Streak",
