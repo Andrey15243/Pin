@@ -203,7 +203,7 @@ bot.on("successful_payment", async (ctx) => {
       const parts = payload.split("_")
       const daysMissed = parseInt(parts[2])
       const currentStreak = parseInt(parts[3])
-      const newStreak = currentStreak + daysMissed  // 15 + 3 = 18
+      const newStreak = currentStreak + daysMissed + 1
 
       await supabase
         .from("users")
